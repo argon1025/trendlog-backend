@@ -6,3 +6,7 @@
   - evidence: pom.xml
 - Testcontainers 2.x의 `org.testcontainers.mysql.MySQLContainer`는 제네릭 클래스가 아니다. 1.x 관례대로 `MySQLContainer<?> c = new MySQLContainer<>(...)`로 쓰면 `cannot use '<>' with non-generic class`로 컴파일이 실패한다. 타입 파라미터 없이 `MySQLContainer c = new MySQLContainer("mysql:8.4")`로 선언한다.
   - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
+- trendlog-backend의 Swagger는 springdoc-openapi 3.0.3을 쓴다. 3.x가 Spring Boot 4를 지원하는 첫 메이저 버전이고 2.x는 Boot 3 전용이라 Boot 4에서는 뜨지 않는다. Boot 부모 POM이 springdoc을 관리하지 않으므로 `<version>`을 직접 적어야 한다.
+  - evidence: pom.xml
+- trendlog-backend의 `prod` 프로파일은 `spring.datasource.*`에 기본값을 두지 않고 `${DB_URL}` 형태 환경변수만 읽는다. 기본값을 두면 변수 주입을 빠뜨렸을 때 앱이 조용히 로컬 DB에 붙은 채 정상인 척 기동한다. 기동 시점에 바로 실패시키는 쪽을 택했다. 같은 이유로 `prod`에서는 Swagger(`springdoc.api-docs.enabled`, `springdoc.swagger-ui.enabled`)도 꺼서 인증 없는 명세 노출을 막는다.
+  - evidence: src/main/resources/application-prod.yaml
