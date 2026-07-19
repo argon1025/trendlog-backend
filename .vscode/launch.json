@@ -1,0 +1,27 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "java",
+			"name": "Trendlog API (dev)",
+			"request": "launch",
+			"mainClass": "io.trendlog.api.ApiApplication",
+			"projectName": "api",
+			"args": "--spring.profiles.active=dev"
+		},
+		{
+			"type": "java",
+			"name": "Trendlog API (prod)",
+			"request": "launch",
+			"mainClass": "io.trendlog.api.ApiApplication",
+			"projectName": "api",
+			"args": "--spring.profiles.active=prod",
+			// 아래 세 값은 실제 운영 DB 정보로 바꿔서 쓰세요. 자리표시자 그대로 실행하면 기동에 실패해요.
+			"env": {
+				"DB_URL": "jdbc:mysql://CHANGE_ME:3306/trendlog",
+				"DB_USERNAME": "CHANGE_ME",
+				"DB_PASSWORD": "CHANGE_ME"
+			}
+		}
+	]
+}

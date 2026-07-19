@@ -10,3 +10,5 @@
   - evidence: pom.xml
 - trendlog-backend의 `prod` 프로파일은 `spring.datasource.*`에 기본값을 두지 않고 `${DB_URL}` 형태 환경변수만 읽는다. 기본값을 두면 변수 주입을 빠뜨렸을 때 앱이 조용히 로컬 DB에 붙은 채 정상인 척 기동한다. 기동 시점에 바로 실패시키는 쪽을 택했다. 같은 이유로 `prod`에서는 Swagger(`springdoc.api-docs.enabled`, `springdoc.swagger-ui.enabled`)도 꺼서 인증 없는 명세 노출을 막는다.
   - evidence: src/main/resources/application-prod.yaml
+- `.gitignore`에서 디렉터리 안의 특정 파일 하나만 추적하려면 무시 규칙을 `.vscode/*`로 써야 한다. `.vscode/`처럼 디렉터리 자체를 제외하면 git이 그 안으로 내려가지 않아 뒤따르는 `!.vscode/launch.json` 예외가 통째로 무시된다. `git check-ignore -v .vscode/launch.json`으로 어느 규칙에 걸렸는지 확인할 수 있다.
+  - evidence: .gitignore
