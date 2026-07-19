@@ -1,0 +1,2 @@
+- trendlog-backend의 로컬 개발용 MySQL 컨테이너는 호스트 포트 3310을 쓴다(컨테이너 내부는 3306 유지). 사용자 개발 머신에서 호스트 3306은 다른 사이드 프로젝트가 이미 점유하고 있어, 3306으로 매핑하면 `docker compose up -d`가 포트 충돌로 실패한다.
+  - evidence: compose.yaml

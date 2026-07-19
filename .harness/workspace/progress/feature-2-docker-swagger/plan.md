@@ -270,3 +270,55 @@ curl -s -o /dev/null -w "%{http_code}\n" localhost:8080/v3/api-docs   # 200
 - Spring Boot 4.0.7이 관리하는 Testcontainers는 2.0.5이며, 1.x와 좌표가 다르다는 사실 (`testcontainers-mysql`, `testcontainers-junit-jupiter`).
 - springdoc-openapi는 Boot 4에서 3.x를 써야 하며 2.x는 동작하지 않는다는 사실.
 - prod 프로파일에 기본값을 두지 않기로 한 이유 (환경변수 누락 시 조용히 로컬 DB에 붙는 사고 방지).
+
+## Re-plan 2026-07-19
+
+워크스루 리뷰에서 나온 지적 1건을 반영해요. **로컬 MySQL의 호스트 포트를 3306에서 3310으로 바꿔요.**
+
+사용자의 다른 사이드 프로젝트가 호스트 3306을 이미 점유하고 있어요. 원래 계획대로 `3306:3306`으로 두면 `docker compose up -d`가 포트 충돌로 실패해요. 컨테이너 안 MySQL은 기본 3306 그대로 두고, 호스트 쪽만 3310으로 매핑해요. 컨테이너 내부 포트까지 바꾸면 MySQL 설정 파일을 따로 건드려야 하는데 얻는 게 없어요.
+
+아래 세 곳을 정정해요. 나머지 내용은 위 원본 그대로 유효해요.
+
+### 1. 「미리 정한 값」 표 — 포트
+
+| 항목 | 값 |
+|---|---|
+| 포트 | ~~`3306:3306`~~ → **`3310:3306`** (호스트 3310, 컨테이너 3306) |
+
+커밋 1의 `compose.yaml`에 이 매핑을 적용해요.
+
+### 2. 커밋 2 — `application-dev.yaml` 접속 URL
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3310/trendlog?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: trendlog
+    password: trendlog
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+```
+
+### 3. 「전체 검증」 — 접속 확인
+
+`docker compose ps` 결과에서 포트 표기가 `0.0.0.0:3310->3306/tcp`로 나오는지 확인해요. 호스트에서 직접 붙어볼 때도 포트를 명시해요.
+
+```bash
+mysql -h 127.0.0.1 -P 3310 -u trendlog -p trendlog
+```
+
+### 변경 없는 것
+
+- **커밋 3 (Testcontainers)** — 컨테이너가 실행할 때마다 임의 포트를 잡고 `@ServiceConnection`이 자동으로 꽂아줘요. 호스트 3310과 무관해요.
+- **커밋 4, 5** — 앱 포트(8080)와 프로파일 설정은 그대로예요.
+
+### feedback.md 추가 항목
+
+위 3개에 더해 아래 사실도 남겨요.
+
+- 로컬 MySQL 호스트 포트가 3310인 이유 (3306은 사용자의 다른 프로젝트가 점유).
