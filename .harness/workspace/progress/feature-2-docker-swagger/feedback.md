@@ -2,3 +2,7 @@
   - evidence: compose.yaml
 - trendlog-backend는 프로파일을 `spring.profiles.active`가 아닌 `spring.profiles.default: dev`로 지정한다. 이 경우 기동 로그는 `The following 1 profile is active: "dev"`가 아니라 `No active profile set, falling back to 1 default profile: "dev"`로 찍힌다. 후자를 보고 프로파일이 안 먹었다고 오판하지 말 것. `application-dev.yaml`은 정상 적용된다.
   - evidence: src/main/resources/application.yaml
+- Spring Boot 4.0.7이 관리하는 Testcontainers는 2.0.5이며 1.x와 아티팩트 좌표가 다르다. `org.testcontainers:testcontainers-mysql`, `org.testcontainers:testcontainers-junit-jupiter`를 쓰고(1.x의 `mysql`, `junit-jupiter` 아님), 버전은 부모 POM이 관리하므로 `<version>`을 적지 않는다.
+  - evidence: pom.xml
+- Testcontainers 2.x의 `org.testcontainers.mysql.MySQLContainer`는 제네릭 클래스가 아니다. 1.x 관례대로 `MySQLContainer<?> c = new MySQLContainer<>(...)`로 쓰면 `cannot use '<>' with non-generic class`로 컴파일이 실패한다. 타입 파라미터 없이 `MySQLContainer c = new MySQLContainer("mysql:8.4")`로 선언한다.
+  - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
