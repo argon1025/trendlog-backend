@@ -33,5 +33,5 @@ build/
 .vscode/*
 !.vscode/launch.json
 
-### Env ###
-.env
+### Local MySQL data (compose bind mount) ###
+/data/

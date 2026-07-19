@@ -12,3 +12,7 @@
   - evidence: src/main/resources/application-prod.yaml
 - `.gitignore`에서 디렉터리 안의 특정 파일 하나만 추적하려면 무시 규칙을 `.vscode/*`로 써야 한다. `.vscode/`처럼 디렉터리 자체를 제외하면 git이 그 안으로 내려가지 않아 뒤따르는 `!.vscode/launch.json` 예외가 통째로 무시된다. `git check-ignore -v .vscode/launch.json`으로 어느 규칙에 걸렸는지 확인할 수 있다.
   - evidence: .gitignore
+- trendlog-backend의 compose.yaml은 MySQL 접속 계정을 `.env` 간접화 없이 파일에 직접 적는다(2차 워크스루 리뷰 결정). 로컬 전용 계정(`trendlog`/`trendlog`)이라 숨길 비밀이 없고, 접속정보가 파일에 바로 보이는 쪽이 원래 설계 의도다. `.env`/`.env.example` 방식은 기각됐으므로 재도입하지 말 것.
+  - evidence: compose.yaml
+- trendlog-backend의 로컬 MySQL 데이터는 이름 있는 볼륨이 아니라 프로젝트 안 `./data/` 바인드 마운트에 저장한다(2차 워크스루 리뷰 결정). 프로젝트 폴더를 옮길 때 테스트 데이터가 함께 이동해야 한다는 요구 때문이다. `/data/`는 `.gitignore`에 등록돼 있다.
+  - evidence: compose.yaml

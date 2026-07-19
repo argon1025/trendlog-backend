@@ -32,14 +32,11 @@ sdk env
 
 ### 1. MySQL 컨테이너 기동
 
-접속 계정은 `.env`에서 읽어요. 처음 한 번은 견본을 복사해 주세요.
-
 ```bash
-cp .env.example .env
 docker compose up -d
 ```
 
-호스트 포트는 **3310**이에요. 컨테이너 안 MySQL은 기본 3306을 그대로 써요.
+호스트 포트는 **3310**이에요. 컨테이너 안 MySQL은 기본 3306을 그대로 써요. 접속 계정은 `compose.yaml`에 적혀 있어요(로컬 전용 `trendlog` / `trendlog`). 데이터는 프로젝트 안 `./data/`에 쌓이고, git에는 올라가지 않아요.
 
 ### 2. 애플리케이션 실행
 
