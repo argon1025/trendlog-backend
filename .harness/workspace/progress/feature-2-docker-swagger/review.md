@@ -26,3 +26,35 @@
 - 접속정보가 `.env`와 `application-dev.yaml`에 두 벌 있어요. 접속 대상을 설정 파일에서 바로 보이게 하려고 감수한 중복이에요.
 - prod 설정이 데이터소스만 다뤄요. 로깅 수준, 커넥션 풀 크기, 서버 포트는 기본값이에요.
 - `OpenApiConfig`에 인증 스킴 정의가 없어요. 로그인이 붙는 시점에 추가해야 해요.
+
+## 리뷰 2차 2026-07-20
+
+구현 커밋 5개가 올라온 뒤의 코드 모드 워크스루예요. 로컬 MySQL 컨테이너 → dev/prod 프로파일 분리 → Testcontainers 테스트 복구 → Swagger 도입 → VS Code 실행 구성 순서로 훑고, 새 개발자 관점의 전체 흐름으로 마무리했어요. 코멘트 3건이 나왔고 셋 다 수용해서 이 세션에서 바로 반영했어요.
+
+---
+
+### 지적 1 — 접속 계정을 `.env`로 분리하지 말고 `compose.yaml`에 직접 적기
+
+- **수용 여부:** 수용
+- **사유:** 값이 전부 `trendlog`인 로컬 전용 계정이라 숨길 비밀이 없어요. 계획의 확정 결정 2번("접속정보가 설정 파일에 보이는 쪽이 추적하기 쉽다")과도 직접 기입이 더 부합하고, `cp .env.example .env` 준비 단계도 없어져요.
+- **변경 결과:** 기존에는 `compose.yaml`이 `${MYSQL_ROOT_PASSWORD}` 형태로 `.env`를 읽고 `.env.example` 견본을 따로 뒀어요. 이제 계정 4개 값을 `compose.yaml`에 직접 적고 `.env.example`과 `.gitignore`의 `.env` 규칙을 지웠어요. 커밋 `558a3e8`.
+
+### 지적 2 — 도커 데이터를 프로젝트 안 `./data/`에 저장
+
+- **수용 여부:** 수용
+- **사유:** 이름 있는 볼륨은 Docker 내부 영역에 있어서 프로젝트 폴더를 옮기면 데이터가 따라오지 않아요. 개발용 테스트 데이터가 프로젝트와 함께 이동해야 한다는 요구를 반영했어요. macOS Docker Desktop에서 바인드 마운트는 볼륨보다 디스크 I/O가 느리지만 로컬 개발 부하에서는 체감 차이가 없어요.
+- **변경 결과:** 기존에는 이름 있는 볼륨 `mysql-data`를 `/var/lib/mysql`에 붙였어요. 이제 `./data:/var/lib/mysql` 바인드 마운트로 바꾸고 `/data/`를 `.gitignore`에 등록했어요. 컨테이너를 새로 띄워 `healthy` 상태와 `./data/` 생성, `git check-ignore` 적용까지 확인했어요. 커밋 `558a3e8`.
+
+### 지적 3 — `spring.profiles.default: dev` 제거, 프로파일 미지정 시 기동 실패
+
+- **수용 여부:** 수용
+- **사유:** 계획의 확정 결정 3번("prod는 값이 없으면 기동 시점에 시끄럽게 실패")과 같은 철학이에요. 기본값 dev는 어느 환경으로 떴는지를 암묵적으로 만들어요. 테스트는 `@ServiceConnection`이 접속정보를 직접 주입해 프로파일 없이 돌고, `.vscode/launch.json`은 이미 프로파일을 명시하고 있어 영향이 없어요.
+- **변경 결과:** 기존에는 `application.yaml`의 `spring.profiles.default: dev` 덕에 미지정 실행도 dev로 떴어요. 이제 그 설정을 지워서 미지정 실행은 `Failed to determine a suitable driver class`로 실패하고(실측 확인), README 실행 명령을 `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`로 바꿨어요. dev 명시 기동 시 `/v3/api-docs` 200, `./mvnw test`는 `Tests run: 1, Failures: 0, Errors: 0`으로 통과했어요. 커밋 `8a527cf`.
+
+### 기각 항목
+
+없어요.
+
+### 리뷰 중 논의만 하고 기록하지 않기로 한 것
+
+- 공유 Testcontainers 컨테이너의 데이터 오염 우려 — 싱글턴 컨테이너가 표준 패턴이고 격리는 데이터 계층(`@Transactional` 롤백 등)에서 푸는 문제라는 설명에 합의했어요. DB를 실제로 읽고 쓰는 테스트가 처음 추가될 때 격리 전략을 정하기로 하고, 이번 수정 대상에서는 뺐어요.
