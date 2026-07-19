@@ -1,5 +1,3 @@
 spring:
   application:
     name: api
-  profiles:
-    default: dev

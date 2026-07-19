@@ -41,10 +41,10 @@ docker compose up -d
 ### 2. 애플리케이션 실행
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-기본 포트는 8080이에요. 프로파일을 따로 주지 않으면 `dev`로 떠요. `spring-boot-devtools`가 들어 있어서 클래스가 바뀌면 자동으로 다시 시작해요.
+기본 포트는 8080이에요. 기본 프로파일이 없어서 `dev`든 `prod`든 프로파일을 반드시 명시해야 해요. 명시하지 않으면 데이터소스 설정이 없어 기동에 실패해요. `spring-boot-devtools`가 들어 있어서 클래스가 바뀌면 자동으로 다시 시작해요.
 
 ### 3. Swagger 접속
 

@@ -16,3 +16,5 @@
   - evidence: compose.yaml
 - trendlog-backend의 로컬 MySQL 데이터는 이름 있는 볼륨이 아니라 프로젝트 안 `./data/` 바인드 마운트에 저장한다(2차 워크스루 리뷰 결정). 프로젝트 폴더를 옮길 때 테스트 데이터가 함께 이동해야 한다는 요구 때문이다. `/data/`는 `.gitignore`에 등록돼 있다.
   - evidence: compose.yaml
+- [정정] trendlog-backend는 더 이상 `spring.profiles.default: dev`를 쓰지 않는다(2차 워크스루 리뷰 결정, 앞의 default 프로파일 항목은 이 시점부터 무효). 프로파일 미지정 실행은 데이터소스 설정이 없어 `Failed to determine a suitable driver class`로 기동에 실패하며, 이는 의도된 동작이다. 실행 시 `--spring.profiles.active`(또는 `-Dspring-boot.run.profiles`)를 반드시 명시한다. 테스트는 `@ServiceConnection`이 접속정보를 직접 주입하므로 프로파일 없이 돈다.
+  - evidence: src/main/resources/application.yaml
