@@ -1,2 +1,4 @@
 - trendlog-backend의 로컬 개발용 MySQL 컨테이너는 호스트 포트 3310을 쓴다(컨테이너 내부는 3306 유지). 사용자 개발 머신에서 호스트 3306은 다른 사이드 프로젝트가 이미 점유하고 있어, 3306으로 매핑하면 `docker compose up -d`가 포트 충돌로 실패한다.
   - evidence: compose.yaml
+- trendlog-backend는 프로파일을 `spring.profiles.active`가 아닌 `spring.profiles.default: dev`로 지정한다. 이 경우 기동 로그는 `The following 1 profile is active: "dev"`가 아니라 `No active profile set, falling back to 1 default profile: "dev"`로 찍힌다. 후자를 보고 프로파일이 안 먹었다고 오판하지 말 것. `application-dev.yaml`은 정상 적용된다.
+  - evidence: src/main/resources/application.yaml
