@@ -7,12 +7,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
 /**
- * 통합 테스트 공통 부모. 컨테이너를 static으로 두어 테스트 클래스가 늘어나도 MySQL은 하나만 뜬다.
+ * 통합 테스트 구성
  */
 @SpringBootTest
 @Testcontainers
 public abstract class AbstractIntegrationTest {
 
+	// 테스트 클래스가 늘어나도 MySQL 컨테이너는 공유
 	@Container
 	@ServiceConnection
 	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");

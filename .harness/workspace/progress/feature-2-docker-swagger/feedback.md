@@ -18,3 +18,11 @@
   - evidence: compose.yaml
 - [정정] trendlog-backend는 더 이상 `spring.profiles.default: dev`를 쓰지 않는다(2차 워크스루 리뷰 결정, 앞의 default 프로파일 항목은 이 시점부터 무효). 프로파일 미지정 실행은 데이터소스 설정이 없어 `Failed to determine a suitable driver class`로 기동에 실패하며, 이는 의도된 동작이다. 실행 시 `--spring.profiles.active`(또는 `-Dspring-boot.run.profiles`)를 반드시 명시한다. 테스트는 `@ServiceConnection`이 접속정보를 직접 주입하므로 프로파일 없이 돈다.
   - evidence: src/main/resources/application.yaml
+- trendlog-backend 사용자는 설정 파일(compose.yaml 등)에 설계 의도 설명 주석을 남기지 않는다. 커밋됐던 "로컬 개발 전용 계정이라 값을 직접 적는다" 주석을 사용자가 직접 제거했다. 그 의도는 feedback.md/위키에 기록하는 것으로 충분하며 파일 안 주석으로 반복하지 않는다.
+  - evidence: compose.yaml
+- trendlog-backend의 테스트 메서드에는 `@DisplayName`으로 한국어 검증 설명을 단다. 사용자가 `contextLoads()`에 `@DisplayName("전체 컨텍스트가 정상 로드 되었는지 검증")`을 직접 추가했다. 이후 작성하는 테스트도 같은 관례를 따른다.
+  - evidence: src/test/java/io/trendlog/api/ApiApplicationTests.java
+- trendlog-backend의 클래스 javadoc은 한 줄 제목("통합 테스트 구성")만 쓰고, 동작 메커니즘 설명(컨테이너 static 공유 등)은 해당 필드 바로 위 인라인 주석으로 짧게 옮긴다. 사용자가 AbstractIntegrationTest에서 이 형태로 직접 재배치했다.
+  - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
+- trendlog-backend 전체 주석 컨벤션(사용자 지시): 코드만 읽어도 유추 가능한 사실은 주석으로 쓰지 않는다. 주석은 도메인 관점의 이유·의도를 서술하며, 해당 논리가 적용된 특정 라인 바로 위에 간결하게 단다. 클래스 전체 javadoc에 세부 동작 설명을 몰아넣는 방식은 지양한다(클래스 javadoc은 한 줄 요약까지만).
+  - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java

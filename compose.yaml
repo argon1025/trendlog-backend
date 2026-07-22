@@ -5,7 +5,6 @@ services:
     restart: unless-stopped
     ports:
       - "3310:3306"
-    # 로컬 개발 전용 계정이라 값을 직접 적는다. 운영 접속정보는 이 파일을 거치지 않는다.
     environment:
       MYSQL_ROOT_PASSWORD: trendlog
       MYSQL_DATABASE: trendlog
