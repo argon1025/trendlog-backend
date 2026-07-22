@@ -1,5 +1,6 @@
 {
   "enabledPlugins": {
-    "dev-harness@my-claude-plugin-market": true
+    "dev-harness@my-claude-plugin-market": true,
+    "pull-request-workflow@my-claude-plugin-market": true
   }
 }
