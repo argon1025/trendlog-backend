@@ -35,3 +35,6 @@ build/
 
 ### Local MySQL data (compose bind mount) ###
 /data/
+
+### Local prod profile (untracked) ###
+/src/main/resources/application-prod.yaml
