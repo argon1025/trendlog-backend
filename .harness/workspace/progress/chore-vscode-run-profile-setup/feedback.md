@@ -1,0 +1,9 @@
+- trendlog-backend의 `src/main/resources/application-prod.yaml`은 저장소에서 추적하지 않아요. `.gitignore`에 등록하고 `git rm --cached`로 인덱스에서 뺐기 때문에, 새로 clone한 환경에는 이 파일이 없고 prod 프로필 실행이 실패해요. 운영 값은 저장소 밖 경로로 공유해야 해요.
+  - evidence: .gitignore
+- 현재 `application-prod.yaml`의 내용은 dev와 완전히 동일한 임시 상태예요. 사용자와 "prod는 지금 dev와 같게 두고 실제 운영 값은 나중에 채운다"고 합의했어요. 그래서 이 파일이 로컬 MySQL을 가리키고 `ddl-auto: update`인 것은 의도한 상태예요.
+- Maven `artifactId`는 `api`로 유지하기로 결정했어요. `io.trendlog:api`가 Maven 좌표 관례(groupId는 뒤집은 도메인, artifactId는 프로젝트 이름)에 맞기 때문이에요. 그래서 빌드 산출물 이름이 `api-0.0.1-SNAPSHOT.jar`인 것은 고쳐야 할 문제가 아니에요.
+  - evidence: pom.xml
+- `.vscode/launch.json`의 `projectName` 값은 Maven `artifactId`를 참조해요. `artifactId`를 바꾸면 이 값도 함께 고쳐야 VS Code에서 실행이 동작해요.
+  - evidence: .vscode/launch.json
+- Spring Boot 4.0.7 기준으로 이 프로젝트의 `spring.application.name`은 로그 패턴 표기와 ApplicationContext id에만 영향을 줘요. actuator, Micrometer, Spring Cloud 의존성이 하나도 없어서 메트릭 태그나 서비스 레지스트리 쪽 소비자가 존재하지 않기 때문이에요.
+  - evidence: pom.xml
