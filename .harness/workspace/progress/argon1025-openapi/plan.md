@@ -662,3 +662,27 @@ io/trendlog/api/external/kis/
 4. 실호출 확인이 필요하면 `KisAuthClientManualTest`의 `@Disabled`를 잠시 떼고 `KIS_APP_KEY`·`KIS_APP_SECRET` 환경변수를 채워 실행해요. 확인 후 `@Disabled`를 되돌려요.
 
 검증이 실패하면 멈추고 보고해요. 재시도 반복이나 우회는 하지 마세요.
+
+---
+
+## Re-plan 2026-07-30 — 미커밋 변경 되돌리기와 Lombok 전환 커밋 추가
+
+패키지 구조 정리를 시작하려는데 작업 트리에 계획에 없는 미커밋 변경 3건이 남아 있었어요. `KisAuthClient.java`에 Lombok `@RequiredArgsConstructor`가 붙어 명시적 생성자가 지워져 있었고, `KisTokenResponse.java`의 애노테이션 두 개가 한 줄로 합쳐져 있었고, `.gitignore`에 `*-study-guide.html` 무시 규칙이 추가돼 있었어요.
+
+이 상태로 커밋 1을 진행하면 "패키지 이동만" 하는 커밋에 Lombok 도입이 섞여 들어가요. 그래서 사용자와 상의해 아래처럼 정했어요.
+
+### 바뀐 결정
+
+1. **세 파일을 모두 `git checkout`으로 되돌려요.** 계획의 커밋 1부터 3까지는 원래 정한 내용만 담아요.
+2. **Lombok 전환은 커밋 4로 계획 뒤에 붙여요.** 패키지 이동과 실패 핸들러 분리가 끝난 뒤에 생성자 방식만 따로 바꿔요.
+3. **`.gitignore`의 `*-study-guide.html` 규칙은 복원하지 않아요.** 되돌린 결과로 `kis-study-guide.html`이 미추적 파일로 드러나지만, 이 파일은 spring-mentor 학습 산출물이라 KIS 연동 작업 범위 밖이에요. 모든 커밋은 경로를 명시해서 담고 이 파일은 추적하지 않아요.
+
+### 커밋 4 — `refactor: KisAuthClient 생성자를 Lombok으로 교체`
+
+| 파일 | 작업 |
+|---|---|
+| `src/main/java/io/trendlog/api/external/kis/auth/KisAuthClient.java` | 명시적 생성자를 지우고 `@RequiredArgsConstructor`를 붙임 |
+
+`pom.xml`에 `org.projectlombok:lombok`이 이미 `<optional>true</optional>`로 들어 있고 `maven-compiler-plugin`의 `annotationProcessorPaths`에도 등록돼 있어요. 그래서 의존성을 새로 추가하지 않아요.
+
+**검증:** `./mvnw -q -Dtest=KisAuthClientTest test`가 통과해요. 테스트가 `new KisAuthClient(kisAuthApi, kisProperties)`로 직접 생성하므로, Lombok이 만든 생성자의 파라미터 순서가 필드 선언 순서와 같다는 것까지 함께 확인돼요.
