@@ -36,11 +36,6 @@ build/
 ### Local MySQL data (compose bind mount) ###
 /data/
 
-### Local prod profile (untracked) ###
+### Profile config files (untracked, hold credentials) ###
+/src/main/resources/application-dev.yaml
 /src/main/resources/application-prod.yaml
-
-### Local env files (untracked, example.env only) ###
-*.env
-.env
-.env.*
-!example.env

@@ -19,3 +19,12 @@
   - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
 - trendlog-backend는 `.env` 계열 파일을 전부 git에서 제외하고 `example.env`만 추적해요(사용자 결정). Spring Boot는 `.env`를 스스로 읽지 않으므로, VS Code 실행은 `.vscode/launch.json`의 `envFile`로 주입하고 `./mvnw spring-boot:run`으로 띄울 때는 셸에서 `set -a; source .env; set +a`로 먼저 올려야 해요.
   - evidence: .gitignore
+- [정정] trendlog-backend는 `.env` 파일 방식을 쓰지 않아요(앞의 `.env`·`example.env`·`envFile` 항목과 `${KIS_APP_KEY}` 환경변수 항목은 이 시점부터 무효). 자격증명은 `src/main/resources/application-{dev,prod}.yaml` 안에 값을 직접 적고, 두 파일을 모두 git에서 제외해요. `application-dev.yaml`은 원래 추적되던 파일이라 `git rm --cached`로 인덱스에서 빼냈어요.
+  - evidence: .gitignore
+- trendlog-backend를 clone한 직후에는 `application-dev.yaml`이 없어서 dev 프로파일 실행이 실패해요. 실행 전에 `src/main/resources/application.example.yml`을 `application-dev.yaml`로 복사하고 `kis.app-key`·`kis.app-secret`을 채우는 단계가 반드시 필요해요. 이 비용을 알고 선택한 구조예요(사용자 결정).
+  - evidence: README.md
+- 설정 견본 파일 이름이 `application.example.yml`인 점이 중요해요. Spring Boot는 프로파일 파일을 붙임표로 구분(`application-{프로파일}.yml`)하므로, 점을 쓴 이 파일은 프로파일 파일로 인식되지 않아 어떤 프로파일에서도 로드되지 않아요. 이름을 `application-example.yml`로 바꾸면 `example` 프로파일 파일이 되어 버려요.
+  - evidence: src/main/resources/application.example.yml
+- 자격증명을 별도 시크릿 파일(`application-secret-{dev,prod}.yaml`)로 떼어 `spring.config.import`로 읽는 방식은 검토 후 기각됐어요(사용자 결정). 환경별 설정 파일 하나에 값을 모으는 쪽이 낫다고 판단했기 때문이에요. 이 방식을 다시 도입하지 마세요.
+- trendlog-backend의 테스트는 프로파일을 지정하지 않고 돌기 때문에 `application-dev.yaml`을 읽지 않아요. 그래서 `AbstractIntegrationTest`가 넘기는 더미 자격증명은 환경변수 이름이 아니라 프로퍼티 키(`kis.app-key`, `kis.app-secret`)여야 해요.
+  - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java

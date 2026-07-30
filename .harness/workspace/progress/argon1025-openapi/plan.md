@@ -410,3 +410,73 @@ README에 담을 내용은 세 가지예요.
 - 토큰 보관·재발급 레이어는 다음 브랜치에서 만들고, 그 패키지 이름과 파일 구조도 그때 확정한다는 사용자와의 합의
 - 연동 환경을 실전으로 고정한 이유(시세 조회 API 상당수가 모의투자 미지원)
 - `application.yaml`이 `${KIS_APP_KEY}`를 기본값 없이 읽기 때문에, 통합 테스트 부모 클래스가 더미 자격증명을 넘겨야 컨텍스트가 뜬다는 사실
+
+## Re-plan 2026-07-30
+
+커밋 4개를 모두 올린 뒤, 사용자가 자격증명 주입 경로를 바꾸기로 결정했어요. 원래 플랜의 결정 7번(`.env` 계열을 git에서 제외하고 `example.env`만 추적)과 커밋 1의 `.vscode/launch.json` `envFile` 주입을 철회해요.
+
+### 바뀐 결정
+
+1. **자격증명은 `src/main/resources/` 안의 시크릿 yaml 파일에 둬요.** 저장소 루트의 `.env`와 VS Code `envFile` 주입은 쓰지 않아요. Spring Boot가 기본으로 제공하는 `spring.config.import`로 읽어요.
+2. **시크릿 파일은 환경별로 나눠요.** dev는 `application-secret-dev.yaml`, prod는 `application-secret-prod.yaml`이에요. 두 파일 모두 git에서 제외하고, 견본 `application-secret.example.yaml` 하나만 추적해요.
+3. **`application.yaml`의 `${KIS_APP_KEY}` 자리표시자를 제거해요.** 자격증명을 환경변수로 읽지 않으므로 자리표시자가 필요 없어요.
+4. **`application-prod.yaml`은 이번에도 건드리지 않아요.** 이 파일은 저장소에 없고 로컬에도 없어요. prod용 import 한 줄은 README에 안내 문구로만 남겨요.
+
+### 파일 변경
+
+| 파일 | 작업 |
+|---|---|
+| `example.env` | 삭제 |
+| `.gitignore` | `.env` 블록 제거, `application-secret-*.yaml` 제외 규칙 추가 |
+| `.vscode/launch.json` | `envFile` 항목 제거 |
+| `src/main/resources/application.yaml` | `kis` 자리표시자 제거 |
+| `src/main/resources/application-dev.yaml` | `spring.config.import` 추가 |
+| `src/main/resources/application-secret.example.yaml` | 신규. 추적되는 견본 |
+| `src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java` | 더미 값을 `kis.app-key`·`kis.app-secret` 키로 변경 |
+| `README.md` | 시크릿 파일 준비 절차로 교체, 운영 환경변수 표에서 KIS 두 행 제거 |
+
+`application-dev.yaml`에 넣는 줄은 아래예요. `optional:`을 붙여야 파일이 없는 CI에서 기동이 실패하지 않아요.
+
+```yaml
+spring:
+  config:
+    import: optional:classpath:application-secret-dev.yaml
+```
+
+`AbstractIntegrationTest`의 더미 값은 환경변수 이름이 아니라 프로퍼티 키로 넘겨요. 테스트는 dev 프로파일 없이 돌아서 시크릿 파일을 읽지 않기 때문이에요.
+
+```java
+@SpringBootTest(properties = {
+		"kis.app-key=test-app-key",
+		"kis.app-secret=test-app-secret"
+})
+```
+
+**검증:** `./mvnw test`가 통과해요. dev 프로파일로 기동했을 때 `application-secret-dev.yaml`이 있으면 정상 기동하고, 그 파일을 치우면 `KisProperties`의 `@NotBlank`가 걸려 기동이 실패해요. 이 두 결과가 import가 실제로 동작한다는 증거예요.
+
+## Re-plan 2026-07-30 (2차)
+
+바로 위 1차 재계획의 시크릿 분리 방식을 철회해요. 사용자가 "환경별 설정 파일 안에 자격증명을 직접 적고 그 파일을 커밋하지 않는다"로 다시 정했어요.
+
+### 바뀐 결정
+
+1. **자격증명은 `application-{dev,prod}.yaml` 안에 직접 적어요.** 별도 시크릿 파일과 `spring.config.import`는 쓰지 않아요. 1차 재계획에서 만들려던 `application-secret-*.yaml` 계열은 만들지 않아요.
+2. **`application-dev.yaml`도 저장소에서 제외해요.** 지금은 추적되고 있으므로 `git rm --cached`로 인덱스에서 빼요. `application-prod.yaml`은 이미 제외돼 있어요.
+3. **견본은 `src/main/resources/application.example.yml` 하나예요.** dev 프로파일이 필요한 항목 전체(포트, 데이터소스, JPA, springdoc, kis)를 담아요. 이 파일을 `application-dev.yaml`로 복사하면 바로 실행할 수 있어야 해요.
+4. **clone 직후 dev 실행이 곧바로 되지 않는 점을 받아들여요.** 프로파일 설정 파일이 저장소에 없으므로, 실행 전에 견본을 복사하는 단계가 반드시 필요해요. README 로컬 실행 절 맨 앞에 이 단계를 둬요.
+
+파일 이름이 `application.example.yml`인 이유가 있어요. Spring Boot는 프로파일 파일을 `application-{프로파일}.yml`처럼 붙임표로 구분하는데, 이 파일은 `application.example.yml`로 점을 쓰기 때문에 프로파일 파일로 인식되지 않아요. 그래서 견본이 실수로 로드될 일이 없어요.
+
+### 파일 변경
+
+| 파일 | 작업 |
+|---|---|
+| `src/main/resources/application-secret.example.yaml` | 1차 재계획에서 만들려던 파일. 만들지 않아요 |
+| `src/main/resources/application-dev.yaml` | `spring.config.import` 제거, `kis` 항목 추가, `git rm --cached`로 추적 해제 |
+| `src/main/resources/application.example.yml` | 신규. 추적되는 유일한 설정 견본 |
+| `.gitignore` | 시크릿 파일 규칙 제거, `application-dev.yaml` 제외 규칙 추가 |
+| `README.md` | 견본 복사 단계를 로컬 실행 1번으로, 운영 실행 절도 같은 방식으로 정리 |
+
+`AbstractIntegrationTest`의 더미 자격증명은 1차 재계획대로 프로퍼티 키(`kis.app-key`, `kis.app-secret`)로 넘긴 상태를 유지해요. 테스트는 프로파일 없이 돌아서 `application-dev.yaml`을 읽지 않기 때문이에요.
+
+**검증:** `./mvnw test`가 통과해요. `git check-ignore -q src/main/resources/application-dev.yaml`이 exit 0을 주고, `git ls-files src/main/resources`에는 `application.yaml`과 `application.example.yml` 두 개만 남아요.
