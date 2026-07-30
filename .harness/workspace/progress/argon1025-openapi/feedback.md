@@ -28,3 +28,18 @@
 - 자격증명을 별도 시크릿 파일(`application-secret-{dev,prod}.yaml`)로 떼어 `spring.config.import`로 읽는 방식은 검토 후 기각됐어요(사용자 결정). 환경별 설정 파일 하나에 값을 모으는 쪽이 낫다고 판단했기 때문이에요. 이 방식을 다시 도입하지 마세요.
 - trendlog-backend의 테스트는 프로파일을 지정하지 않고 돌기 때문에 `application-dev.yaml`을 읽지 않아요. 그래서 `AbstractIntegrationTest`가 넘기는 더미 자격증명은 환경변수 이름이 아니라 프로퍼티 키(`kis.app-key`, `kis.app-secret`)여야 해요.
   - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
+- `trendlog-backend`의 KIS 연동 폴더 경계는 `한투OPENAPI.xlsx` 각 시트의 `메뉴 위치` 값(`OAuth인증`, `[국내주식] 기본시세` 등 23개 대분류)을 그대로 따라요. 새 기준을 발명하지 말고 시트 값을 확인해서 폴더를 고르세요.
+- KIS 시세 API는 `appkey`와 `appsecret`을 요청 **헤더**로 받지만, 접근토큰발급(`POST /oauth2/tokenP`)만 **JSON 본문**으로 받아요. 헤더는 그룹 기본 헤더 설정으로 자동으로 채워지지만 본문은 채울 수 없어서, 인증만 요청 객체를 조립하는 코드가 따로 필요해요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/auth/KisAuthClient.java
+- `trendlog-backend`에서 `KisProperties`를 주입받는 클래스는 `io.trendlog.api.external.kis` 패키지 안에만 둬요. `KisAuthClient`가 얇은데도 남아 있는 이유가 이 규칙이지, 호출자에게 자격증명을 숨기려는 목적이 아니에요.
+- `@ImportHttpServices`의 `types()`는 `Class<?>[]`이고 애노테이션 자체가 `@Repeatable`이에요. 그래서 선언형 클라이언트 그룹 하나에 인터페이스 여러 개를 등록할 수 있고, 그룹(인증 헤더 정책)과 인터페이스(API 주제)를 서로 독립된 축으로 나눌 수 있어요.
+- 모든 KIS API를 인터페이스 하나에 담는 방안은 기각됐어요(사용자와 검토함). 선언형 클라이언트 그룹이 인터페이스 타입 단위로 배정되기 때문에, 인터페이스가 하나면 `authorization`을 채우는 인터셉터가 접근토큰발급 호출에도 걸려서 순환이 생겨요.
+- KIS 호출의 실패 변환은 `KisApiErrorHandler`가 담당하고 `KisClientConfig`의 `RestClientHttpServiceGroupConfigurer` 빈이 `kis-` 그룹 전체에 걸어요. 새 API를 붙일 때 `try/catch`를 다시 쓰지 마세요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java
+- `KisAuthClientTest`는 스프링 컨텍스트를 띄우지 않고 `HttpServiceProxyFactory`로 프록시를 직접 만들어요. 그래서 `RestClientHttpServiceGroupConfigurer`가 적용되지 않고, 실패 변환을 검증하려면 테스트의 `RestClient.Builder`에 `defaultStatusHandler`를 직접 붙여야 해요.
+  - evidence: src/test/java/io/trendlog/api/external/kis/auth/KisAuthClientTest.java
+- KIS 시세 API는 `tr_id`가 API마다 고정 문자열이에요. `@GetExchange(headers = "tr_id=...")`로 메서드에 직접 박으면 되고, 이 값을 넘기려고 래퍼 클래스를 만들 필요가 없어요.
+- Spring Framework 7.0.8의 `ResponseErrorHandler`에서 추상 메서드는 `boolean hasError(ClientHttpResponse)` 하나뿐이고, 실패를 처리하는 쪽은 기본 메서드 `void handleError(URI, HttpMethod, ClientHttpResponse)`예요. Spring 6까지 있던 1인자 `handleError(ClientHttpResponse)`는 없으니 그 시그니처로 구현하면 컴파일되지 않아요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java
+- 선언형 클라이언트 그룹을 골라 설정할 때 `Groups`에는 `filterByName(String...)`뿐 아니라 `filter(Predicate<HttpServiceGroup>)`도 있어요. `trendlog-backend`는 접두사 조건(`group.name().startsWith("kis-")`)을 쓰는 후자를 택했어요. 시세용 `kis-quote` 그룹을 추가할 때 `KisClientConfig`의 필터 목록을 같이 고치는 일을 잊지 않으려고요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
