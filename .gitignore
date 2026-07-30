@@ -38,3 +38,9 @@ build/
 
 ### Local prod profile (untracked) ###
 /src/main/resources/application-prod.yaml
+
+### Local env files (untracked, example.env only) ###
+*.env
+.env
+.env.*
+!example.env

@@ -7,7 +7,8 @@
 			"request": "launch",
 			"mainClass": "io.trendlog.api.ApiApplication",
 			"projectName": "api",
-			"args": "--spring.profiles.active=${input:springProfile}"
+			"args": "--spring.profiles.active=${input:springProfile}",
+			"envFile": "${workspaceFolder}/.env"
 		}
 	],
 	"inputs": [
