@@ -6,7 +6,7 @@ import org.springframework.validation.annotation.Validated;
 import jakarta.validation.constraints.NotBlank;
 
 /**
- * 한국투자증권 OpenAPI 자격증명
+ * 한국투자증권 OpenAPI 환경설정
  */
 @Validated
 @ConfigurationProperties(prefix = "kis")

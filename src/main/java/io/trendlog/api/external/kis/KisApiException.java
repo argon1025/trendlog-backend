@@ -9,7 +9,7 @@ public class KisApiException extends RuntimeException {
 
 	private final HttpStatusCode statusCode;
 
-	// KIS가 실패 응답 본문 규격을 명세에 공개하지 않아 해석하지 않고 원문을 그대로 보관
+	// 원문 그대로
 	private final String responseBody;
 
 	public KisApiException(HttpStatusCode statusCode, String responseBody, Throwable cause) {

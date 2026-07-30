@@ -43,3 +43,7 @@
   - evidence: src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java
 - 선언형 클라이언트 그룹을 골라 설정할 때 `Groups`에는 `filterByName(String...)`뿐 아니라 `filter(Predicate<HttpServiceGroup>)`도 있어요. `trendlog-backend`는 접두사 조건(`group.name().startsWith("kis-")`)을 쓰는 후자를 택했어요. 시세용 `kis-quote` 그룹을 추가할 때 `KisClientConfig`의 필터 목록을 같이 고치는 일을 잊지 않으려고요.
   - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
+- `trendlog-backend`의 KIS 연동 코드 주석은 "무엇을 하는 코드인가"만 한두 줄로 적고, 판단 근거·트레이드오프·재발 방지 규칙은 코드에 남기지 않아요(사용자 결정). 그 근거는 하네스 피드백과 위키에만 둬요. 그래서 커밋 `d647bf4`가 `KisClientConfig` javadoc에 넣었던 "KIS API 추가 규칙" 목록과, `KisApiException`·`KisAuthClient`·`KisApiErrorHandler`의 근거 주석을 모두 지웠어요. 앞으로 이 파일들에 설명 주석을 다시 늘리지 마세요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
+- `Kis...Api` 인터페이스의 주석은 "실제 규격과 동일"임을 밝히고 래퍼 클래스를 가리키는 형식을 써요. 메서드마다 한 줄 javadoc(`/** Access Token 발급 */`)을 붙이는 것이 이 패키지의 주석 형식이에요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/auth/KisAuthApi.java
