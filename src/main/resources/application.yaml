@@ -1,3 +1,13 @@
 spring:
   application:
     name: trendlog-backend
+  http:
+    serviceclient:
+      kis-auth:
+        base-url: https://openapi.koreainvestment.com:9443
+        connect-timeout: 3s
+        read-timeout: 10s
+
+kis:
+  app-key: ${KIS_APP_KEY}
+  app-secret: ${KIS_APP_SECRET}
