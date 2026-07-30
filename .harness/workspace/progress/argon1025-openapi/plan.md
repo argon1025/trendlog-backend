@@ -480,3 +480,185 @@ spring:
 `AbstractIntegrationTest`의 더미 자격증명은 1차 재계획대로 프로퍼티 키(`kis.app-key`, `kis.app-secret`)로 넘긴 상태를 유지해요. 테스트는 프로파일 없이 돌아서 `application-dev.yaml`을 읽지 않기 때문이에요.
 
 **검증:** `./mvnw test`가 통과해요. `git check-ignore -q src/main/resources/application-dev.yaml`이 exit 0을 주고, `git ls-files src/main/resources`에는 `application.yaml`과 `application.example.yml` 두 개만 남아요.
+
+---
+
+## Re-plan 2026-07-30 — KIS 외부 연동 패키지 구조 정리
+
+앞선 계획으로 접근토큰 발급까지 붙인 뒤, 사용자가 `io.trendlog.api.external.kis` 폴더가 평평해서 역할 구분이 안 된다는 점과 앞으로 KIS 다른 API를 어떻게 늘릴지를 다시 검토했어요. 아래는 그 검토 결과로 승인된 계획 전문이에요.
+
+
+## Context
+
+`trendlog-backend`의 한국투자증권 OpenAPI(이하 KIS) 연동 코드가 지금은 `io.trendlog.api.external.kis` 한 폴더에 평평하게 놓여 있어요. 설정(`KisProperties`), 클라이언트 등록(`KisClientConfig`), 선언형 명세(`KisAuthApi`), 호출 앞단(`KisAuthClient`), 예외(`KisApiException`)가 같은 층에 섞여 있어서 어떤 파일이 무슨 역할인지 이름으로만 구분해야 해요.
+
+파일이 7개뿐인 지금은 견딜 만하지만 오래 못 버텨요. 저장소 루트의 `한투OPENAPI.xlsx`에는 API 시트가 339개 있고, KIS가 스스로 `메뉴 위치` 값으로 23개 대분류로 나눠 놨어요. 이 서비스가 쓸 국내주식 계열만 봐도 `[국내주식] 기본시세` 22개, `[국내주식] 시세분석` 29개, `[국내주식] 종목정보` 26개, `[국내주식] 업종/기타` 14개예요. 시세 API를 붙이기 시작하면 평평한 폴더는 곧 수십 개 파일 더미가 돼요.
+
+이번 작업의 목표는 두 가지예요. 첫째로 지금 파일 7개를 옮기는 값싼 시점에 폴더 경계를 잡아요. 둘째로 앞으로 KIS API를 하나 더 붙일 때 어떤 파일을 만들고 어떤 파일은 만들지 않는지 규칙을 코드와 문서에 남겨요. 실제 시세 API 구현은 이번 범위가 아니에요.
+
+## 필독 자료
+
+`.harness/docs/` 위키는 비어 있어요. `wiki_index.py`를 실행하면 헤더 한 줄만 나와요. 대신 아래 두 파일을 코드 수정 전에 반드시 읽어주세요.
+
+- `.harness/workspace/progress/argon1025-openapi/feedback.md` — Spring Boot 4의 `spring.http.clients.*` 복수형 프로퍼티 이름, 선언형 클라이언트 그룹명이 문자열 완전 일치로만 매칭된다는 함정, Jackson 애노테이션 import 경로, KIS 토큰의 6시간 갱신주기, 자격증명을 `application-dev.yaml`에 직접 적고 git에서 제외한다는 결정이 적혀 있어요.
+- `.harness/workspace/progress/feature-2-docker-swagger/feedback.md` — Spring Boot 4 계열 스타터 이름 규칙, Testcontainers 2.x 좌표, 주석과 테스트 작성 관례가 적혀 있어요.
+
+## 사전에 확정한 사실
+
+아래는 `spring-web-7.0.8.jar`를 `javap`로 직접 뜯어보고, `한투OPENAPI.xlsx`의 `주식현재가 시세` 시트를 직접 파싱해서 확인한 값이에요. 추측이 아니니 그대로 쓰면 돼요.
+
+### 선언형 HTTP 클라이언트 API
+
+- `@ImportHttpServices`의 `types()` 반환형은 `Class<?>[]`이에요. 그래서 그룹 하나에 인터페이스를 여러 개 등록할 수 있어요.
+- `@ImportHttpServices`는 `@Repeatable(ImportHttpServices.Container.class)`예요. 설정 클래스 하나에 그룹 여러 개를 선언할 수 있어요.
+- `@GetExchange`와 `@PostExchange`에 `headers()` 속성이 있어요. 값은 `String[]`이라 `headers = "tr_id=FHKST01010100"`처럼 고정 헤더를 메서드에 직접 박을 수 있어요.
+- `org.springframework.web.client.support.RestClientHttpServiceGroupConfigurer` 인터페이스가 있어요. `HttpServiceGroupConfigurer<RestClient.Builder>`를 상속하고, `groups().filterByName(String...)`으로 그룹을 고른 뒤 `forEachClient((group, builder) -> ...)`으로 그룹별 `RestClient.Builder`를 손볼 수 있어요.
+- `RestClient.Builder`에 `defaultStatusHandler(ResponseErrorHandler)`와 `requestInterceptor(ClientHttpRequestInterceptor)`, `defaultHeader(String, String...)`이 있어요.
+- `ResponseErrorHandler`는 `boolean hasError(ClientHttpResponse)`가 추상 메서드이고, `void handleError(URI, HttpMethod, ClientHttpResponse)`가 기본 메서드예요. 둘 다 `IOException`을 던질 수 있어요.
+
+### KIS 시세 API의 요청 규격
+
+`한투OPENAPI.xlsx`의 `주식현재가 시세` 시트(API ID `v1_국내주식-008`)에서 그대로 옮긴 값이에요.
+
+| 항목 | 값 |
+|---|---|
+| HTTP Method | `GET` |
+| URL | `/uapi/domestic-stock/v1/quotations/inquire-price` |
+| 실전 TR_ID | `FHKST01010100` |
+| 메뉴 위치 | `[국내주식] 기본시세` |
+
+필수 요청 헤더는 `content-type`, `authorization`, `appkey`, `appsecret`, `tr_id`, `custtype` 여섯 개예요. `personalseckey`, `tr_cont`, `seq_no`, `mac_address`, `phone_number`, `ip_addr`, `gt_uid`는 법인 전용이거나 선택이라 개인 계정에서는 안 보내도 돼요. 요청 쿼리 파라미터는 `FID_COND_MRKT_DIV_CODE`(`J`는 KRX)와 `FID_INPUT_ISCD`(종목코드) 두 개예요.
+
+여기서 중요한 대비가 하나 있어요. 시세 API는 `appkey`와 `appsecret`을 **헤더**로 받지만, 접근토큰발급 API(`POST /oauth2/tokenP`)는 필수 헤더가 하나도 없고 자격증명을 **JSON 본문**으로 받아요. 헤더는 그룹 기본 헤더 설정으로 자동으로 채울 수 있지만, 본문은 설정으로 채울 수 없어요. 이 차이가 아래 결정 3번의 근거예요.
+
+## 설계 결정
+
+### 1. 선언형 인터페이스는 단일로 만들지 않아요
+
+모든 KIS API를 `KisApi` 인터페이스 하나에 담는 방안을 검토했고 기각했어요. 이유가 두 가지예요.
+
+첫째로 선언형 클라이언트 그룹은 인터페이스 타입 단위로 배정돼요. 인터페이스가 하나면 그룹도 하나가 되고, 그 그룹에 걸린 인터셉터는 모든 메서드에 걸려요. 그런데 시세 호출에는 `authorization` 헤더를 채우는 인터셉터가 필요하고, 그 인터셉터가 접근토큰발급 호출에도 걸리면 토큰을 받으려고 토큰을 요구하는 순환이 생겨요. 이 위험은 이전 브랜치 `feedback.md`에도 이미 기록돼 있어요.
+
+둘째로 인터페이스 하나에 메서드가 수십 개 쌓여요. 국내주식 계열만 붙여도 후보가 90개가 넘어서, 폴더에서 구분이 안 되던 문제가 파일 안으로 자리만 옮겨요.
+
+### 2. 폴더와 인터페이스는 KIS 명세의 `메뉴 위치` 대분류를 따라요
+
+KIS가 명세에서 이미 API를 `OAuth인증`, `[국내주식] 기본시세`, `[국내주식] 시세분석` 같은 대분류로 나눠 놨어요. 이 분류를 그대로 폴더 경계로 씁니다. 우리가 새 기준을 발명하지 않으니 어떤 API를 어디에 넣을지 다투지 않아도 돼요.
+
+그룹은 인증 헤더 정책으로만 나눠요. 지금은 `kis-auth` 하나이고, 시세를 붙일 때 `kis-quote`를 추가해요. `types()`가 배열이라 대분류 인터페이스 여러 개를 같은 그룹에 함께 등록할 수 있어요. 그래서 그룹(인증 정책)과 인터페이스(주제)가 서로 독립된 축으로 움직여요.
+
+이번 작업 후 구조는 이래요.
+
+```
+io/trendlog/api/external/kis/
+├─ KisProperties.java          자격증명 설정
+├─ KisApiException.java        공용 예외
+├─ KisApiErrorHandler.java     (신규) 응답 실패를 KisApiException으로 변환
+├─ KisClientConfig.java        그룹 등록 + 그룹별 RestClient 설정
+└─ auth/
+   ├─ KisAuthApi.java
+   ├─ KisAuthClient.java
+   └─ dto/
+      ├─ KisTokenRequest.java
+      └─ KisTokenResponse.java
+```
+
+시세를 붙일 때는 `quote/` 폴더가 같은 층에 생기고, 그 안에 `KisDomesticQuoteApi.java`와 `dto/`가 들어가요. 공용 파일 4개는 계속 `kis/` 바로 아래에 둬요. 이 4개까지 `config/`나 `support/` 폴더로 내리면 파일 하나짜리 폴더만 늘어나요.
+
+### 3. `KisAuthClient`는 남기고, 존재 이유를 바꿔 적어요
+
+기존 주석은 "호출하는 쪽이 자격증명을 모르고도 발급받을 수 있도록"이라고 적혀 있어요. 이 표현은 근거가 약해요. 같은 저장소 코드끼리 자격증명을 숨길 이유가 없기 때문이에요.
+
+진짜 이유는 따로 있어요. `KisProperties`를 읽는 지점을 `io.trendlog.api.external.kis` 패키지 안에만 가두려는 거예요. 시세 그룹의 `appkey`·`appsecret` 기본 헤더 설정도 같은 `KisProperties`를 읽어요. 그래서 자격증명을 읽는 지점은 `KisClientConfig`와 `KisAuthClient` 두 곳뿐이고, 둘 다 이 패키지 안에 있어요. `KisAuthClient`를 지우면 다음 브랜치의 토큰 보관 레이어가 `KisProperties`를 직접 주입받게 되고, 자격증명을 읽는 지점이 패키지 밖으로 새어 나가요.
+
+규칙으로 적으면 이래요. **`KisProperties`를 주입받는 클래스는 `io.trendlog.api.external.kis` 안에만 둬요.**
+
+### 4. 실패 변환을 그룹 공용 핸들러로 올려요
+
+지금은 `KisAuthClient`의 `try/catch`가 `RestClientResponseException`을 잡아 `KisApiException`으로 바꿔요. 이 방식은 API가 늘어날 때마다 같은 `try/catch`를 복사해야 해요.
+
+`KisApiErrorHandler`를 `ResponseErrorHandler` 구현체로 새로 만들고, `KisClientConfig`가 `RestClientHttpServiceGroupConfigurer` 빈으로 모든 `kis-` 그룹에 `defaultStatusHandler`로 걸어요. 그러면 인터페이스가 몇 개로 늘어나든 KIS 호출은 전부 균일하게 `KisApiException`을 던져요. `KisAuthClient`의 `try/catch`는 지워요.
+
+`KisApiException`의 생성자 시그니처(`HttpStatusCode`, `String`, `Throwable`)와 필드는 바꾸지 않아요. 다만 핸들러에서 던질 때는 감쌀 원인 예외가 없으므로 `cause`에 `null`을 넘겨요.
+
+### 5. 앞으로 KIS API를 하나 더 붙일 때 만드는 파일
+
+이 규칙을 `KisClientConfig`의 클래스 주석에 남겨서 다음 작업자가 찾을 수 있게 해요.
+
+| 대상 | 만드나요 | 설명 |
+|---|---|---|
+| 대분류 폴더 | 해당 `메뉴 위치` 폴더가 없을 때만 | 예를 들어 `[국내주식] 기본시세`의 첫 API라면 `quote/`를 새로 만들어요 |
+| `Kis...Api` 인터페이스 | 대분류마다 1개 | API가 늘면 인터페이스에 메서드를 추가해요. API마다 인터페이스를 새로 만들지 않아요 |
+| 요청·응답 `record` | API마다 필요한 만큼 | `dto/` 아래에 둬요. 응답에 `output1`·`output2`가 있으면 중첩 `record`로 만들어요 |
+| `Kis...Client` 래퍼 | 원칙적으로 만들지 않아요 | 시세 API는 호출자가 조회 조건만 넘기면 되고, `appkey`·`appsecret`·`custtype`은 그룹 기본 헤더가, `authorization`은 인터셉터가, `tr_id`는 메서드 애노테이션이 채워요. 감쌀 게 없으면 순수 위임 래퍼는 파일과 테스트만 두 배로 늘려요 |
+| 그룹 | 인증 헤더 정책이 다를 때만 | 지금 있는 `kis-auth` 외에 시세용 `kis-quote` 하나를 더 만들 예정이에요. 그 이상 늘릴 이유는 없어요 |
+
+`tr_id`는 API마다 고정 문자열이므로 `@GetExchange(url = "...", headers = "tr_id=FHKST01010100")` 형태로 메서드에 직접 적어요.
+
+## 파일별 작업
+
+| 파일 | 작업 |
+|---|---|
+| `src/main/java/io/trendlog/api/external/kis/KisAuthApi.java` | `kis.auth` 패키지로 이동. `package` 선언 변경 외 내용 무변경 |
+| `src/main/java/io/trendlog/api/external/kis/KisAuthClient.java` | `kis.auth` 패키지로 이동. `try/catch` 제거. 주석을 결정 3번 근거로 교체. `KisProperties` import 추가 |
+| `src/main/java/io/trendlog/api/external/kis/dto/KisTokenRequest.java` | `kis.auth.dto` 패키지로 이동. 내용 무변경 |
+| `src/main/java/io/trendlog/api/external/kis/dto/KisTokenResponse.java` | `kis.auth.dto` 패키지로 이동. 내용 무변경 |
+| `src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java` | 신규. `ResponseErrorHandler` 구현. `hasError`는 `response.getStatusCode().isError()`, `handleError`는 상태 코드와 본문 원문을 담은 `KisApiException`을 던짐 |
+| `src/main/java/io/trendlog/api/external/kis/KisClientConfig.java` | `RestClientHttpServiceGroupConfigurer` 빈 추가. `@ImportHttpServices`의 `types`는 이동한 `io.trendlog.api.external.kis.auth.KisAuthApi`를 가리키도록 import만 변경. 클래스 주석에 결정 5번 규칙표 요약 추가 |
+| `src/main/java/io/trendlog/api/external/kis/KisProperties.java` | 위치·내용 무변경 |
+| `src/main/java/io/trendlog/api/external/kis/KisApiException.java` | 위치·내용 무변경 |
+| `src/test/java/io/trendlog/api/external/kis/KisAuthClientTest.java` | `kis.auth` 패키지로 이동. `setUp()`에서 `builder.defaultStatusHandler(new KisApiErrorHandler())` 추가. 생성자 호출에서 `KisProperties` import 경로 변경 |
+| `src/test/java/io/trendlog/api/external/kis/KisAuthClientManualTest.java` | `kis.auth` 패키지로 이동. `RestClient.builder()`에 같은 핸들러 추가 |
+
+`application.yaml`은 바꾸지 않아요. 그룹명 `kis-auth`가 그대로이기 때문이에요. 그룹명 문자열과 yaml 키는 완전 일치로만 매칭되니 어느 쪽도 건드리지 마세요.
+
+`KisApiErrorHandler`에서 응답 본문을 읽을 때는 `org.springframework.util.StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8)`을 쓰세요.
+
+## 커밋 분해
+
+1 태스크 = 1 커밋이고 Conventional Commits를 따라요. `--no-verify`와 테스트 생략은 금지예요.
+
+### 커밋 1 — `refactor: KIS 연동 패키지를 명세 대분류 기준으로 분리`
+
+`KisAuthApi`, `KisAuthClient`, `KisTokenRequest`, `KisTokenResponse`와 두 테스트 파일을 `auth` 하위 패키지로 옮겨요. 이 커밋에서는 동작을 바꾸지 않아요. `KisAuthClient`의 `try/catch`도 아직 그대로 둬요.
+
+검증: `./mvnw -q -Dtest=KisAuthClientTest test`를 실행하면 테스트 2개가 통과해야 해요.
+
+### 커밋 2 — `refactor: KIS 호출 실패 변환을 그룹 공용 핸들러로 이동`
+
+`KisApiErrorHandler`를 새로 만들고, `KisClientConfig`에 `RestClientHttpServiceGroupConfigurer` 빈을 추가해요. `KisAuthClient`의 `try/catch`를 지우고 주석을 교체해요. 두 테스트의 `RestClient.Builder`에 같은 핸들러를 붙여요.
+
+검증: `./mvnw -q -Dtest=KisAuthClientTest test`를 실행하면 실패 케이스 테스트가 여전히 `KisApiException`을 확인하며 통과해야 해요.
+
+### 커밋 3 — `docs: KIS API 추가 규칙을 설정 클래스 주석에 명시`
+
+`KisClientConfig` 클래스 주석에 결정 5번의 규칙표를 요약해서 넣어요. 이번 브랜치에서 알게 된 사실을 `.harness/workspace/progress/argon1025-openapi/feedback.md`에 덧붙여요.
+
+검증: `./mvnw -q compile`이 성공해야 해요.
+
+## feedback.md에 덧붙일 항목
+
+아래 문장들을 `.harness/workspace/progress/argon1025-openapi/feedback.md` 끝에 append 하고 커밋 3에 포함해요. 기존 항목은 고치거나 지우지 마세요.
+
+- `trendlog-backend`의 KIS 연동 폴더 경계는 `한투OPENAPI.xlsx` 각 시트의 `메뉴 위치` 값(`OAuth인증`, `[국내주식] 기본시세` 등 23개 대분류)을 그대로 따라요. 새 기준을 발명하지 말고 시트 값을 확인해서 폴더를 고르세요.
+- KIS 시세 API는 `appkey`와 `appsecret`을 요청 **헤더**로 받지만, 접근토큰발급(`POST /oauth2/tokenP`)만 **JSON 본문**으로 받아요. 헤더는 그룹 기본 헤더 설정으로 자동으로 채워지지만 본문은 채울 수 없어서, 인증만 요청 객체를 조립하는 코드가 따로 필요해요.
+  - evidence: `src/main/java/io/trendlog/api/external/kis/auth/KisAuthClient.java`
+- `trendlog-backend`에서 `KisProperties`를 주입받는 클래스는 `io.trendlog.api.external.kis` 패키지 안에만 둬요. `KisAuthClient`가 얇은데도 남아 있는 이유가 이 규칙이지, 호출자에게 자격증명을 숨기려는 목적이 아니에요.
+- `@ImportHttpServices`의 `types()`는 `Class<?>[]`이고 애노테이션 자체가 `@Repeatable`이에요. 그래서 선언형 클라이언트 그룹 하나에 인터페이스 여러 개를 등록할 수 있고, 그룹(인증 헤더 정책)과 인터페이스(API 주제)를 서로 독립된 축으로 나눌 수 있어요.
+- 모든 KIS API를 인터페이스 하나에 담는 방안은 기각됐어요(사용자와 검토함). 선언형 클라이언트 그룹이 인터페이스 타입 단위로 배정되기 때문에, 인터페이스가 하나면 `authorization`을 채우는 인터셉터가 접근토큰발급 호출에도 걸려서 순환이 생겨요.
+- KIS 호출의 실패 변환은 `KisApiErrorHandler`가 담당하고 `KisClientConfig`의 `RestClientHttpServiceGroupConfigurer` 빈이 `kis-` 그룹 전체에 걸어요. 새 API를 붙일 때 `try/catch`를 다시 쓰지 마세요.
+  - evidence: `src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java`
+- `KisAuthClientTest`는 스프링 컨텍스트를 띄우지 않고 `HttpServiceProxyFactory`로 프록시를 직접 만들어요. 그래서 `RestClientHttpServiceGroupConfigurer`가 적용되지 않고, 실패 변환을 검증하려면 테스트의 `RestClient.Builder`에 `defaultStatusHandler`를 직접 붙여야 해요.
+  - evidence: `src/test/java/io/trendlog/api/external/kis/auth/KisAuthClientTest.java`
+- KIS 시세 API는 `tr_id`가 API마다 고정 문자열이에요. `@GetExchange(headers = "tr_id=...")`로 메서드에 직접 박으면 되고, 이 값을 넘기려고 래퍼 클래스를 만들 필요가 없어요.
+
+## 검증
+
+전체 검증은 아래 순서로 해요. Testcontainers가 MySQL 컨테이너를 띄우므로 Docker가 실행 중이어야 해요.
+
+1. `./mvnw -q compile` — 패키지 이동 후 import가 전부 맞는지 확인해요.
+2. `./mvnw -q -Dtest=KisAuthClientTest test` — 단위 테스트 2개가 통과해야 해요. 성공 케이스는 요청 본문의 `grant_type`·`appkey`·`appsecret`과 응답 4필드 매핑을 확인하고, 실패 케이스는 403 응답이 `KisApiException`으로 바뀌면서 상태 코드와 본문 원문을 담는지 확인해요.
+3. `./mvnw -q test` — `ApiApplicationTests.contextLoads`까지 포함한 전체가 통과해야 해요. 이 테스트는 `@ImportHttpServices`가 등록한 프록시 빈과 새로 추가한 `RestClientHttpServiceGroupConfigurer` 빈이 정상 생성되는지를 함께 확인해줘요.
+4. 실호출 확인이 필요하면 `KisAuthClientManualTest`의 `@Disabled`를 잠시 떼고 `KIS_APP_KEY`·`KIS_APP_SECRET` 환경변수를 채워 실행해요. 확인 후 `@Disabled`를 되돌려요.
+
+검증이 실패하면 멈추고 보고해요. 재시도 반복이나 우회는 하지 마세요.
