@@ -18,6 +18,7 @@ trendlog 서비스의 백엔드 API 서버예요.
 | API 문서 | Swagger UI (springdoc-openapi 3.0.3) |
 | 외부 연동 | 한국투자증권 OpenAPI (Spring `RestClient` 선언형 클라이언트) |
 | 보일러플레이트 축소 | Lombok |
+| 코드 포매터 | spotless 3.9.0 + palantir-java-format 2.96.0 (`PALANTIR` 스타일) |
 
 ## 사전 준비
 
@@ -61,6 +62,26 @@ docker compose up -d
 ### 4. Swagger 접속
 
 `http://localhost:8080/swagger-ui.html`을 열면 API 명세가 보여요. 원본 OpenAPI 문서는 `http://localhost:8080/v3/api-docs`예요.
+
+## 코드 스타일
+
+Java 코드 서식은 spotless가 자동으로 맞춰요. 규칙은 palantir-java-format의 `PALANTIR` 스타일이고, 들여쓰기는 4칸 공백, 한 줄은 120컬럼까지예요. import 순서 정리와 쓰지 않는 import 제거도 함께 처리해요.
+
+`spotless:apply`가 Maven `process-sources` 단계에 묶여 있어서, 아래 명령 중 무엇을 돌려도 소스가 정리돼요.
+
+```bash
+./mvnw compile
+./mvnw test
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+서식이 맞는지만 확인하고 싶으면 다음 명령을 쓰세요. 어긋난 파일이 있으면 목록을 보여 주고 실패해요.
+
+```bash
+./mvnw spotless:check
+```
+
+편집기 쪽 들여쓰기는 `.editorconfig`가 맞춰 줘요.
 
 ## 운영 실행
 
