@@ -1,0 +1,49 @@
+- trendlog-backend에서 `RestClient`를 쓰려면 `org.springframework.boot:spring-boot-restclient` 의존성을 직접 추가해야 해요. Spring Boot 4는 자동 구성을 모듈로 쪼개 놓았고, `spring-boot-starter-webmvc`가 끌고 오는 건 `spring-boot-starter`, `spring-boot-starter-jackson`, `spring-boot-starter-tomcat`, `spring-boot-http-converter`, `spring-boot-webmvc` 다섯 개뿐이라 `RestClient.Builder` 빈이 아예 만들어지지 않아요. `spring-boot-restclient`가 `spring-boot-http-client`를 함께 끌고 오고, 버전은 부모 POM이 관리하므로 `<version>`을 적지 않아요.
+  - evidence: pom.xml
+- Spring Boot 4.0.7의 HTTP 클라이언트 설정 프로퍼티 이름은 복수형 `spring.http.clients.*`예요. 단수형 `spring.http.client.*`는 사용 중단(deprecated) 별칭이라 검색으로 찾은 예제를 그대로 붙여 넣으면 낡은 이름을 쓰게 돼요. 선언형 클라이언트의 그룹별 설정은 별도로 `spring.http.serviceclient.<그룹명>` 아래에 두고, `base-url`·`default-header`·`apiversion`·`connect-timeout`·`read-timeout`·`redirects`·`ssl.bundle`을 받아요.
+  - evidence: src/main/resources/application.yaml
+- 선언형 HTTP 클라이언트의 그룹명은 `Map.get(String)`으로 정확히 일치 비교해요. `application.yaml`의 `spring.http.serviceclient` 아래 키와 `@ImportHttpServices(group = "...")`의 문자열이 글자 하나라도 다르면 `base-url`이 조용히 적용되지 않고 요청이 상대 경로로 나가요. 느슨한 이름 매칭(relaxed binding)을 기대하지 마세요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
+- trendlog-backend에 Apache HttpClient·Jetty·Reactor Netty가 없으므로 Spring Boot 4가 고르는 요청 팩토리는 JDK `java.net.http.HttpClient`예요. 선택 순서는 Apache HttpClient, Jetty, Reactor Netty, JDK `HttpClient`, `HttpURLConnection` 순서라서, 이 중 하나를 의존성에 추가하는 순간 기존 동작과 다른 팩토리로 조용히 바뀌어요.
+  - evidence: pom.xml
+- Spring Boot 4.0.7은 Jackson 3.1.4(`tools.jackson.core:jackson-databind`)를 쓰지만, 애노테이션은 여전히 `com.fasterxml.jackson.core:jackson-annotations:2.19.2`에서 와요. 그래서 `@JsonProperty`와 `@JsonFormat`의 import 경로는 `com.fasterxml.jackson.annotation.*` 그대로예요. Jackson 3은 `java.time` 지원을 내장했으니 `jackson-datatype-jsr310`을 추가하지 마세요.
+- 한국투자증권 OpenAPI 명세(`한투OPENAPI.xlsx`의 `접근토큰발급(P)` 시트)에는 성공 응답 레이아웃만 있고 실패 응답 본문 규격이 없어요. 그래서 오류 전용 DTO를 만들지 않고 `KisApiException`이 HTTP 상태 코드와 응답 본문 원문을 그대로 실어 던지기로 했어요. 실제 오류 응답을 한 번 관찰한 뒤에 전용 DTO를 붙이는 게 맞아요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisApiException.java
+- 한국투자증권 접근토큰은 유효기간이 24시간이고 1일 1회 발급이 원칙이며, 갱신발급주기가 6시간이에요. 6시간 안에 발급을 다시 호출하면 새 토큰이 아니라 직전 토큰이 그대로 돌아와요. 그래서 재발급 호출이 실패로 보이지 않으니, 토큰이 안 바뀐다고 오판하지 마세요.
+- 선언형 클라이언트 그룹을 인증용(`kis-auth`)과 시세용으로 처음부터 분리했어요. 앞으로 시세 API에는 `authorization` 헤더를 자동으로 채우는 가로채기(interceptor)를 달 예정인데, 그게 토큰 발급 호출에도 걸리면 토큰을 받으려고 토큰을 요구하는 순환이 생겨요. 시세 API를 붙일 때 두 그룹을 하나로 합치지 마세요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
+- trendlog-backend의 `io.trendlog.api.external` 패키지는 순수 API 연동만 담당해요(사용자 결정). 요청 본문을 만들어 보내고 응답을 DTO로 옮기는 일까지만 하고, 캐시·만료 판정·재발급 판단은 넣지 않아요. 발급받은 토큰을 보관하고 재사용하는 레이어는 다음 브랜치에서 별도로 만들고, 그 패키지 이름과 파일 구조도 그때 확정해요.
+- trendlog-backend의 한국투자증권 연동 환경은 실전(`https://openapi.koreainvestment.com:9443`)으로 고정해요. 모의 도메인(`https://openapivts.koreainvestment.com:29443`)을 고르는 분기 코드를 넣지 않아요. 기술적 분석에 필요한 시세 조회 API 상당수가 명세에 "모의투자 미지원"으로 적혀 있어서 실전만 쓸 수 있기 때문이에요.
+  - evidence: src/main/resources/application.yaml
+- trendlog-backend의 `application.yaml`은 `kis.app-key`와 `kis.app-secret`을 `${KIS_APP_KEY}` 형태로 기본값 없이 읽어요. 그래서 환경변수가 없는 CI에서는 `KisProperties` 바인딩이 실패해 전체 컨텍스트 로드 테스트가 깨져요. `AbstractIntegrationTest`가 더미 자격증명을 `@SpringBootTest(properties = ...)`로 넘겨 이를 막고 있으니, 이 값을 지우지 마세요.
+  - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
+- trendlog-backend는 `.env` 계열 파일을 전부 git에서 제외하고 `example.env`만 추적해요(사용자 결정). Spring Boot는 `.env`를 스스로 읽지 않으므로, VS Code 실행은 `.vscode/launch.json`의 `envFile`로 주입하고 `./mvnw spring-boot:run`으로 띄울 때는 셸에서 `set -a; source .env; set +a`로 먼저 올려야 해요.
+  - evidence: .gitignore
+- [정정] trendlog-backend는 `.env` 파일 방식을 쓰지 않아요(앞의 `.env`·`example.env`·`envFile` 항목과 `${KIS_APP_KEY}` 환경변수 항목은 이 시점부터 무효). 자격증명은 `src/main/resources/application-{dev,prod}.yaml` 안에 값을 직접 적고, 두 파일을 모두 git에서 제외해요. `application-dev.yaml`은 원래 추적되던 파일이라 `git rm --cached`로 인덱스에서 빼냈어요.
+  - evidence: .gitignore
+- trendlog-backend를 clone한 직후에는 `application-dev.yaml`이 없어서 dev 프로파일 실행이 실패해요. 실행 전에 `src/main/resources/application.example.yml`을 `application-dev.yaml`로 복사하고 `kis.app-key`·`kis.app-secret`을 채우는 단계가 반드시 필요해요. 이 비용을 알고 선택한 구조예요(사용자 결정).
+  - evidence: README.md
+- 설정 견본 파일 이름이 `application.example.yml`인 점이 중요해요. Spring Boot는 프로파일 파일을 붙임표로 구분(`application-{프로파일}.yml`)하므로, 점을 쓴 이 파일은 프로파일 파일로 인식되지 않아 어떤 프로파일에서도 로드되지 않아요. 이름을 `application-example.yml`로 바꾸면 `example` 프로파일 파일이 되어 버려요.
+  - evidence: src/main/resources/application.example.yml
+- 자격증명을 별도 시크릿 파일(`application-secret-{dev,prod}.yaml`)로 떼어 `spring.config.import`로 읽는 방식은 검토 후 기각됐어요(사용자 결정). 환경별 설정 파일 하나에 값을 모으는 쪽이 낫다고 판단했기 때문이에요. 이 방식을 다시 도입하지 마세요.
+- trendlog-backend의 테스트는 프로파일을 지정하지 않고 돌기 때문에 `application-dev.yaml`을 읽지 않아요. 그래서 `AbstractIntegrationTest`가 넘기는 더미 자격증명은 환경변수 이름이 아니라 프로퍼티 키(`kis.app-key`, `kis.app-secret`)여야 해요.
+  - evidence: src/test/java/io/trendlog/api/support/AbstractIntegrationTest.java
+- `trendlog-backend`의 KIS 연동 폴더 경계는 `한투OPENAPI.xlsx` 각 시트의 `메뉴 위치` 값(`OAuth인증`, `[국내주식] 기본시세` 등 23개 대분류)을 그대로 따라요. 새 기준을 발명하지 말고 시트 값을 확인해서 폴더를 고르세요.
+- KIS 시세 API는 `appkey`와 `appsecret`을 요청 **헤더**로 받지만, 접근토큰발급(`POST /oauth2/tokenP`)만 **JSON 본문**으로 받아요. 헤더는 그룹 기본 헤더 설정으로 자동으로 채워지지만 본문은 채울 수 없어서, 인증만 요청 객체를 조립하는 코드가 따로 필요해요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/auth/KisAuthClient.java
+- `trendlog-backend`에서 `KisProperties`를 주입받는 클래스는 `io.trendlog.api.external.kis` 패키지 안에만 둬요. `KisAuthClient`가 얇은데도 남아 있는 이유가 이 규칙이지, 호출자에게 자격증명을 숨기려는 목적이 아니에요.
+- `@ImportHttpServices`의 `types()`는 `Class<?>[]`이고 애노테이션 자체가 `@Repeatable`이에요. 그래서 선언형 클라이언트 그룹 하나에 인터페이스 여러 개를 등록할 수 있고, 그룹(인증 헤더 정책)과 인터페이스(API 주제)를 서로 독립된 축으로 나눌 수 있어요.
+- 모든 KIS API를 인터페이스 하나에 담는 방안은 기각됐어요(사용자와 검토함). 선언형 클라이언트 그룹이 인터페이스 타입 단위로 배정되기 때문에, 인터페이스가 하나면 `authorization`을 채우는 인터셉터가 접근토큰발급 호출에도 걸려서 순환이 생겨요.
+- KIS 호출의 실패 변환은 `KisApiErrorHandler`가 담당하고 `KisClientConfig`의 `RestClientHttpServiceGroupConfigurer` 빈이 `kis-` 그룹 전체에 걸어요. 새 API를 붙일 때 `try/catch`를 다시 쓰지 마세요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java
+- `KisAuthClientTest`는 스프링 컨텍스트를 띄우지 않고 `HttpServiceProxyFactory`로 프록시를 직접 만들어요. 그래서 `RestClientHttpServiceGroupConfigurer`가 적용되지 않고, 실패 변환을 검증하려면 테스트의 `RestClient.Builder`에 `defaultStatusHandler`를 직접 붙여야 해요.
+  - evidence: src/test/java/io/trendlog/api/external/kis/auth/KisAuthClientTest.java
+- KIS 시세 API는 `tr_id`가 API마다 고정 문자열이에요. `@GetExchange(headers = "tr_id=...")`로 메서드에 직접 박으면 되고, 이 값을 넘기려고 래퍼 클래스를 만들 필요가 없어요.
+- Spring Framework 7.0.8의 `ResponseErrorHandler`에서 추상 메서드는 `boolean hasError(ClientHttpResponse)` 하나뿐이고, 실패를 처리하는 쪽은 기본 메서드 `void handleError(URI, HttpMethod, ClientHttpResponse)`예요. Spring 6까지 있던 1인자 `handleError(ClientHttpResponse)`는 없으니 그 시그니처로 구현하면 컴파일되지 않아요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisApiErrorHandler.java
+- 선언형 클라이언트 그룹을 골라 설정할 때 `Groups`에는 `filterByName(String...)`뿐 아니라 `filter(Predicate<HttpServiceGroup>)`도 있어요. `trendlog-backend`는 접두사 조건(`group.name().startsWith("kis-")`)을 쓰는 후자를 택했어요. 시세용 `kis-quote` 그룹을 추가할 때 `KisClientConfig`의 필터 목록을 같이 고치는 일을 잊지 않으려고요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
+- `trendlog-backend`의 KIS 연동 코드 주석은 "무엇을 하는 코드인가"만 한두 줄로 적고, 판단 근거·트레이드오프·재발 방지 규칙은 코드에 남기지 않아요(사용자 결정). 그 근거는 하네스 피드백과 위키에만 둬요. 그래서 커밋 `d647bf4`가 `KisClientConfig` javadoc에 넣었던 "KIS API 추가 규칙" 목록과, `KisApiException`·`KisAuthClient`·`KisApiErrorHandler`의 근거 주석을 모두 지웠어요. 앞으로 이 파일들에 설명 주석을 다시 늘리지 마세요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/KisClientConfig.java
+- `Kis...Api` 인터페이스의 주석은 "실제 규격과 동일"임을 밝히고 래퍼 클래스를 가리키는 형식을 써요. 메서드마다 한 줄 javadoc(`/** Access Token 발급 */`)을 붙이는 것이 이 패키지의 주석 형식이에요.
+  - evidence: src/main/java/io/trendlog/api/external/kis/auth/KisAuthApi.java
