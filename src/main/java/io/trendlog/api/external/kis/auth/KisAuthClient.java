@@ -1,10 +1,12 @@
-package io.trendlog.api.external.kis;
+package io.trendlog.api.external.kis.auth;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
 
-import io.trendlog.api.external.kis.dto.KisTokenRequest;
-import io.trendlog.api.external.kis.dto.KisTokenResponse;
+import io.trendlog.api.external.kis.KisApiException;
+import io.trendlog.api.external.kis.KisProperties;
+import io.trendlog.api.external.kis.auth.dto.KisTokenRequest;
+import io.trendlog.api.external.kis.auth.dto.KisTokenResponse;
 
 /**
  * 한국투자증권 접근토큰 발급 호출

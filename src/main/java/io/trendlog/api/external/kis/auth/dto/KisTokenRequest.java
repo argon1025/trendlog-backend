@@ -1,4 +1,4 @@
-package io.trendlog.api.external.kis.dto;
+package io.trendlog.api.external.kis.auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

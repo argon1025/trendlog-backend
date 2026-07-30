@@ -1,4 +1,4 @@
-package io.trendlog.api.external.kis;
+package io.trendlog.api.external.kis.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -21,7 +21,9 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
-import io.trendlog.api.external.kis.dto.KisTokenResponse;
+import io.trendlog.api.external.kis.KisApiException;
+import io.trendlog.api.external.kis.KisProperties;
+import io.trendlog.api.external.kis.auth.dto.KisTokenResponse;
 
 /**
  * KIS 접근토큰 발급 클라이언트 단위 테스트

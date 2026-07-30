@@ -1,4 +1,4 @@
-package io.trendlog.api.external.kis.dto;
+package io.trendlog.api.external.kis.auth.dto;
 
 import java.time.LocalDateTime;
 

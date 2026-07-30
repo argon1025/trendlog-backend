@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.service.registry.HttpServiceGroup.ClientType;
 import org.springframework.web.service.registry.ImportHttpServices;
 
+import io.trendlog.api.external.kis.auth.KisAuthApi;
+
 /**
  * 한국투자증권 OpenAPI 클라이언트 등록
  */
