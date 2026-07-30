@@ -1,9 +1,7 @@
 package io.trendlog.api.external.kis.auth;
 
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClientResponseException;
 
-import io.trendlog.api.external.kis.KisApiException;
 import io.trendlog.api.external.kis.KisProperties;
 import io.trendlog.api.external.kis.auth.dto.KisTokenRequest;
 import io.trendlog.api.external.kis.auth.dto.KisTokenResponse;
@@ -11,6 +9,8 @@ import io.trendlog.api.external.kis.auth.dto.KisTokenResponse;
 /**
  * 한국투자증권 접근토큰 발급 호출
  */
+// KisProperties를 주입받는 클래스를 io.trendlog.api.external.kis 안에만 두려고 남겨 둔 얇은 컴포넌트.
+// 시세 API는 appkey·appsecret을 그룹 기본 헤더로 채우지만 접근토큰발급만 JSON 본문으로 받아서 조립 지점이 따로 필요함
 @Component
 public class KisAuthClient {
 
@@ -23,16 +23,9 @@ public class KisAuthClient {
 		this.kisProperties = kisProperties;
 	}
 
-	// 호출하는 쪽이 자격증명을 모르고도 발급받을 수 있도록 여기서 채워 넣음
 	public KisTokenResponse issueAccessToken() {
-		try {
-			return kisAuthApi.issueAccessToken(
-					KisTokenRequest.of(kisProperties.appKey(), kisProperties.appSecret()));
-		}
-		catch (RestClientResponseException exception) {
-			throw new KisApiException(exception.getStatusCode(),
-					exception.getResponseBodyAsString(), exception);
-		}
+		return kisAuthApi.issueAccessToken(
+				KisTokenRequest.of(kisProperties.appKey(), kisProperties.appSecret()));
 	}
 
 }

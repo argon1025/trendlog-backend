@@ -21,6 +21,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
+import io.trendlog.api.external.kis.KisApiErrorHandler;
 import io.trendlog.api.external.kis.KisApiException;
 import io.trendlog.api.external.kis.KisProperties;
 import io.trendlog.api.external.kis.auth.dto.KisTokenResponse;
@@ -42,7 +43,9 @@ class KisAuthClientTest {
 
 	@BeforeEach
 	void setUp() {
-		RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+		// 컨텍스트를 안 띄우면 KisClientConfig의 그룹 설정이 적용되지 않아 실패 변환 핸들러를 직접 붙임
+		RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL)
+				.defaultStatusHandler(new KisApiErrorHandler());
 		this.server = MockRestServiceServer.bindTo(builder).build();
 		// 컨텍스트를 띄우지 않고 선언형 프록시만 직접 만들어 붙임
 		KisAuthApi kisAuthApi = HttpServiceProxyFactory

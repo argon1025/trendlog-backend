@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
+import io.trendlog.api.external.kis.KisApiErrorHandler;
 import io.trendlog.api.external.kis.KisProperties;
 import io.trendlog.api.external.kis.auth.dto.KisTokenResponse;
 
@@ -27,8 +28,13 @@ class KisAuthClientManualTest {
 		KisProperties kisProperties = new KisProperties(
 				System.getenv("KIS_APP_KEY"),
 				System.getenv("KIS_APP_SECRET"));
+		// 컨텍스트를 안 띄우면 KisClientConfig의 그룹 설정이 적용되지 않아 실패 변환 핸들러를 직접 붙임
+		RestClient restClient = RestClient.builder()
+				.baseUrl(REAL_BASE_URL)
+				.defaultStatusHandler(new KisApiErrorHandler())
+				.build();
 		KisAuthApi kisAuthApi = HttpServiceProxyFactory
-				.builderFor(RestClientAdapter.create(RestClient.builder().baseUrl(REAL_BASE_URL).build()))
+				.builderFor(RestClientAdapter.create(restClient))
 				.build()
 				.createClient(KisAuthApi.class);
 
