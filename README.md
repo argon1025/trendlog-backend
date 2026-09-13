@@ -16,7 +16,6 @@ trendlog 서비스의 백엔드 API 서버예요.
 | 웹 | Spring WebMVC |
 | 검증 | Jakarta Bean Validation |
 | API 문서 | Swagger UI (springdoc-openapi 3.0.3) |
-| 외부 연동 | 한국투자증권 OpenAPI (Spring `RestClient` 선언형 클라이언트) |
 | 보일러플레이트 축소 | Lombok |
 | 코드 포매터 | spotless 3.9.0 + palantir-java-format 2.96.0 (`PALANTIR` 스타일) |
 
@@ -41,7 +40,7 @@ cp src/main/resources/application.example.yml \
    src/main/resources/application-dev.yaml
 ```
 
-복사한 파일의 `kis.app-key`와 `kis.app-secret`을 한국투자증권 홈페이지에서 발급받은 실제 값으로 바꿔 주세요. 값이 비어 있으면 `KisProperties` 검증이 걸려 기동 시점에 바로 실패해요. 데이터베이스 접속 정보는 아래 컨테이너 설정과 맞춰 둔 값이라 그대로 쓰면 돼요.
+복사한 파일의 데이터베이스 접속 정보는 아래 컨테이너 설정과 맞춰 둔 값이라 그대로 쓰면 돼요.
 
 ### 2. MySQL 컨테이너 기동
 
@@ -93,13 +92,7 @@ Java 코드 서식은 spotless가 자동으로 맞춰요. 규칙은 palantir-jav
 | `DB_USERNAME` | DB 계정 |
 | `DB_PASSWORD` | DB 비밀번호 |
 
-KIS 자격증명은 dev와 마찬가지로 `application-prod.yaml` 안에 직접 적어요. `application-prod.yaml`도 저장소에 없어서 운영 환경에서 직접 만들어야 해요. 견본은 `application.example.yml`을 그대로 쓰고, 데이터베이스 항목은 위 환경변수를 참조하는 형태로 바꿔 주세요.
-
-```yaml
-kis:
-  app-key: 발급받은-appkey
-  app-secret: 발급받은-appsecret
-```
+`application-prod.yaml`도 저장소에 없어서 운영 환경에서 직접 만들어야 해요. 견본은 `application.example.yml`을 그대로 쓰고, 데이터베이스 항목은 위 환경변수를 참조하는 형태로 바꿔 주세요.
 
 Swagger는 `prod`에서 꺼져 있어요. 인증 없는 API 명세가 외부에 노출되지 않게 하려고요.
 
@@ -116,10 +109,9 @@ Swagger는 `prod`에서 꺼져 있어요. 인증 없는 API 명세가 외부에 
 ```
 src/main/java/io/trendlog/api/   애플리케이션 코드
 src/main/resources/              공통 설정 (application.yaml)과 설정 견본 (application.example.yml)
-                                 프로파일별 application-{dev,prod}.yaml은 자격증명을 담아 git에서 제외
+                                 프로파일별 application-{dev,prod}.yaml은 접속 정보를 담아 git에서 제외
 compose.yaml                     로컬 개발용 MySQL 컨테이너 정의
 src/test/java/io/trendlog/api/   테스트 코드
-.harness/                        개발 하네스 (docs = 프로젝트 위키, workspace = 브랜치별 작업 기록)
 .sdkmanrc                        SDKMAN이 읽는 Java 버전 고정 파일
 ```
 

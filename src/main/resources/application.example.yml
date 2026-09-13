@@ -21,8 +21,3 @@ springdoc:
     operations-sorter: alpha
   api-docs:
     path: /v3/api-docs
-
-# 한국투자증권 OpenAPI 홈페이지에서 발급받은 값으로 채운다
-kis:
-  app-key: your-app-key
-  app-secret: your-app-secret
