@@ -1,4 +1,0 @@
-- trendlog-backend의 `./mvnw test`는 현재 `ApiApplicationTests.contextLoads` 1건이 `Failed to determine a suitable driver class`로 실패한다. `spring-boot-starter-data-jpa`가 기동 시 데이터소스를 요구하는데 `src/main/resources/application.yaml`에 `spring.datasource.*`가 비어 있기 때문이다. 코드 결함이 아니라 아직 채우지 않은 설정이며, 사용자가 후속 작업에서 직접 채우기로 했다.
-  - evidence: src/main/resources/application.yaml
-- README.md에서 MySQL 접속 설정 안내를 의도적으로 뺐다. 사용자가 후속 작업에서 `application.yaml`을 바로 수정할 예정이라, 곧 낡을 설정 예시를 문서에 남기지 않기로 합의했다.
-  - evidence: README.md
