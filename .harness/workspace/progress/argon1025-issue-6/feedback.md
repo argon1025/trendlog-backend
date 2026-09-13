@@ -1,8 +1,0 @@
-- `trendlog-backend`의 Java 서식은 spotless의 palantir-java-format 단계가 코드 서식과 import 순서, 사용하지 않는 import 제거를 한꺼번에 처리해요. 그래서 `<removeUnusedImports/>`나 `<importOrder>`를 따로 넣으면 중복이고, import 정렬 규칙이 팀 취향과 다르다고 `<importOrder>`를 덧붙이면 palantir가 정렬한 결과를 다시 뒤집어 매 빌드마다 diff가 흔들려요.
-  - evidence: pom.xml
-- `trendlog-backend`는 `spotless:apply`를 Maven `process-sources` 단계에 묶었어요(사용자 결정). 그래서 `./mvnw test`나 `./mvnw spring-boot:run`이 작업 트리의 Java 파일을 실제로 고쳐 써요. 빌드가 소스를 바꾸지 않는다고 가정하지 마세요. 반대로 VS Code의 Java 확장은 Maven 라이프사이클을 타지 않아서 편집기 안 컴파일로는 서식이 적용되지 않아요.
-  - evidence: pom.xml
-- `trendlog-backend`에서 소스를 고쳐 쓰지 않고 빌드나 테스트만 돌려야 하면 `-Dspotless.apply.skip=true`를 붙여요. 예를 들어 서식 정리 전후를 비교하려고 기준선 테스트를 돌릴 때 이 플래그가 없으면 `./mvnw test`가 먼저 파일을 고쳐 버려서 비교 대상이 사라져요.
-- `trendlog-backend`는 git 훅과 GitHub Actions 서식 검사를 이번 범위에서 뺐어요(사용자 결정). 메이븐을 한 번도 돌리지 않고 커밋하면 서식이 어긋난 코드가 그대로 푸시될 수 있어요. 이 구멍을 막고 싶으면 `./mvnw spotless:install-git-pre-push-hook`을 각자 실행하면 되고, 이 훅은 푸시 때 `spotless:check`를 돌려 어긋나면 `apply`로 고친 뒤 푸시를 중단해요.
-- `trendlog-backend`의 `.editorconfig`는 `[*.java]` 절만 두고 있어요. `pom.xml`은 Spring Initializr가 만든 탭 들여쓰기를 유지하기 때문에, 여기에 `[*.xml]`이나 `[*]` 절을 추가하면 pom 전체 diff가 발생해요.
-  - evidence: .editorconfig
